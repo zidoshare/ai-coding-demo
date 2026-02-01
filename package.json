@@ -22,8 +22,16 @@
   "homepage": "https://github.com/zidoshare/ai-coding-demo#readme",
   "description": "",
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.25",
+    "ai": "^6.0.67",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.6.2",
+    "dotenv": "^17.2.3",
     "ejs": "^4.0.1",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "zhipu-ai-provider": "^0.2.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.18",
