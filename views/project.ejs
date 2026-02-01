@@ -168,45 +168,73 @@
       }
     }
 
+    // 存储工具调用的 DOM 元素和名称
+    const toolCallElements = new Map();
+
     // 添加工具调用提示（正在执行）
-    function addToolCall(toolName, args) {
+    function addToolCall(toolCallId, toolName, args) {
       const toolDiv = document.createElement('div');
-      toolDiv.className = 'flex gap-3 opacity-70';
+      toolDiv.className = 'flex gap-3 opacity-70 tool-item';
       const filePath = args?.path || args?.filePath || '';
       toolDiv.innerHTML = `
-        <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
+        <div class="tool-icon w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-yellow-400 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"></circle>
+            <path d="M12 2v4m0 12v4m10-10h-4M6 12H2m15.07-7.07l-2.83 2.83M9.76 14.24l-2.83 2.83m12.02 0l-2.83-2.83M9.76 9.76L6.93 6.93"/>
           </svg>
         </div>
         <div class="flex-1">
-          <div class="text-xs text-yellow-400 font-mono bg-slate-800/50 rounded px-2 py-1 inline-block">
-            正在执行 ${toolName}${filePath ? ': ' + filePath : ''}...
+          <div class="text-xs text-yellow-400 font-mono bg-slate-800/50 rounded px-2 py-1 inline-block tool-status">
+            执行中: ${toolName}${filePath ? ' (' + filePath + ')' : ''}
           </div>
         </div>
       `;
       chatMessages.appendChild(toolDiv);
       chatMessages.scrollTop = chatMessages.scrollHeight;
+      // 存储元素和工具名
+      toolCallElements.set(toolCallId, { element: toolDiv, toolName: toolName });
     }
 
-    // 添加工具调用提示（执行完成）
-    function addToolResult(result) {
-      const toolDiv = document.createElement('div');
-      toolDiv.className = 'flex gap-3 opacity-70';
-      toolDiv.innerHTML = `
-        <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
+    // 更新工具调用状态（执行完成）
+    function addToolResult(data) {
+      const toolCallId = data.toolCallId;
+      const stored = toolCallElements.get(toolCallId);
+      
+      console.log('addToolResult:', { toolCallId, tool: data.tool, found: !!stored, keys: Array.from(toolCallElements.keys()) });
+      
+      if (stored) {
+        const { element: toolDiv, toolName } = stored;
+        // 更新已有的元素
+        const iconDiv = toolDiv.querySelector('.tool-icon');
+        const statusDiv = toolDiv.querySelector('.tool-status');
+        
+        iconDiv.innerHTML = `
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
           </svg>
-        </div>
-        <div class="flex-1">
-          <div class="text-xs text-emerald-400 font-mono bg-slate-800/50 rounded px-2 py-1 inline-block">
-            ${result.result?.message || result.result?.path || JSON.stringify(result.result)}
+        `;
+        statusDiv.className = 'text-xs text-emerald-400 font-mono bg-slate-800/50 rounded px-2 py-1 inline-block tool-status';
+        statusDiv.textContent = `完成: ${data.tool || toolName}`;
+        
+        toolCallElements.delete(toolCallId);
+      } else {
+        // 如果没找到对应的执行中元素，创建新的
+        const newDiv = document.createElement('div');
+        newDiv.className = 'flex gap-3 opacity-70 tool-item';
+        newDiv.innerHTML = `
+          <div class="tool-icon w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+            </svg>
           </div>
-        </div>
-      `;
-      chatMessages.appendChild(toolDiv);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+          <div class="flex-1">
+            <div class="text-xs text-emerald-400 font-mono bg-slate-800/50 rounded px-2 py-1 inline-block">
+              完成: ${data.tool || '工具'}
+            </div>
+          </div>
+        `;
+        chatMessages.appendChild(newDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
     }
 
     // HTML 转义
@@ -260,26 +288,30 @@
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        let buffer = ''; // 缓冲区处理跨 chunk 的消息
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          
+          // 保留最后一个可能不完整的行
+          buffer = lines.pop() || '';
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
+                console.log('SSE received:', data.type, data);
                 
                 if (data.type === 'text' && data.content) {
                   aiContent += data.content;
                   updateStreamingMessage(aiMessageId, escapeHtml(aiContent));
                 } else if (data.type === 'tool-call') {
                   // 显示工具调用中
-                  const toolName = data.tool || 'unknown';
-                  addToolCall(toolName, data.args);
+                  addToolCall(data.toolCallId, data.tool, data.args);
                 } else if (data.type === 'tool-result') {
                   addToolResult(data);
                   // 工具执行后刷新预览

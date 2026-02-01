@@ -89,10 +89,87 @@
           记事本
         </button>
       </div>
+
+      <!-- 项目历史 -->
+      <div id="projectHistory" class="mt-12 hidden">
+        <h2 class="text-slate-400 text-sm font-medium mb-4 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+          </svg>
+          最近项目
+        </h2>
+        <div id="projectList" class="grid gap-3">
+          <!-- 项目列表将由 JS 填充 -->
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
+    // 加载项目历史
+    async function loadProjectHistory() {
+      try {
+        const res = await fetch('/api/projects');
+        const projects = await res.json();
+        
+        if (projects.length > 0) {
+          const historyContainer = document.getElementById('projectHistory');
+          const listContainer = document.getElementById('projectList');
+          
+          historyContainer.classList.remove('hidden');
+          listContainer.innerHTML = projects.map(project => {
+            const date = new Date(project.created_at);
+            const timeStr = formatTime(date);
+            return `
+              <a href="/projects/${project.id}" class="group flex items-center justify-between p-4 bg-slate-900/50 hover:bg-slate-800/80 border border-slate-700/50 hover:border-slate-600 rounded-xl transition-all duration-200">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-10 h-10 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                  <div class="min-w-0">
+                    <div class="text-slate-200 font-medium truncate">${escapeHtml(project.name || '未命名项目')}</div>
+                    <div class="text-slate-500 text-sm">${timeStr}</div>
+                  </div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-600 group-hover:text-slate-400 transition-colors" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                </svg>
+              </a>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error('加载项目历史失败:', err);
+      }
+    }
+
+    // 格式化时间
+    function formatTime(date) {
+      const now = new Date();
+      const diff = now - date;
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+      
+      if (minutes < 1) return '刚刚';
+      if (minutes < 60) return `${minutes} 分钟前`;
+      if (hours < 24) return `${hours} 小时前`;
+      if (days < 7) return `${days} 天前`;
+      return date.toLocaleDateString('zh-CN');
+    }
+
+    // HTML 转义
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // 页面加载时获取项目历史
+    loadProjectHistory();
+
     // 点击快捷提示填充输入框
     document.querySelectorAll('.prompt-suggestion').forEach(btn => {
       btn.addEventListener('click', () => {

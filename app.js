@@ -174,15 +174,32 @@ function generateProjectId() {
 // 创建项目
 app.post('/projects', requireAuth, (req, res) => {
   const projectId = generateProjectId();
+  const { prompt } = req.body;
+  // 从 prompt 中提取项目名称（取前20个字符）
+  const name = prompt ? prompt.substring(0, 50) : '未命名项目';
   
   try {
-    db.prepare('INSERT INTO projects (id, user_id) VALUES (?, ?)').run(
+    db.prepare('INSERT INTO projects (id, user_id, name) VALUES (?, ?, ?)').run(
       projectId,
-      req.session.userId
+      req.session.userId,
+      name
     );
     res.json({ id: projectId });
   } catch (err) {
     res.status(500).json({ error: '创建项目失败' });
+  }
+});
+
+// 获取项目列表
+app.get('/api/projects', requireAuth, (req, res) => {
+  try {
+    const projects = db.prepare(
+      'SELECT id, name, created_at FROM projects WHERE user_id = ? ORDER BY created_at DESC LIMIT 20'
+    ).all(req.session.userId);
+    res.json(projects);
+  } catch (err) {
+    console.error('获取项目列表失败:', err);
+    res.status(500).json({ error: '获取项目列表失败' });
   }
 });
 
@@ -244,9 +261,10 @@ app.post('/api/chat/:projectId', requireAuth, async (req, res) => {
 3. 主入口文件必须是 index.html
 4. 可以创建多个文件来组织代码（如 css/style.css, js/app.js）
 5. 使用现代的 CSS 和 JavaScript，确保代码美观且功能完整
-6. 创建完文件后，告诉用户可以在右侧预览效果
-
-请直接开始创建文件，不需要先查看目录。`,
+6. 开发完成后，告诉用户可以在右侧预览效果
+7. 你的回复务必简短，不要超过 5 行，不要使用 emoji
+8. 花时间思考你的设计，朴素简单，不要使用俗套的渐变。
+`,
       messages,
       tools,
       stopWhen: stepCountIs(20),
@@ -263,6 +281,11 @@ app.post('/api/chat/:projectId', requireAuth, async (req, res) => {
 
     // 使用 fullStream 来确保工具被执行
     for await (const part of result.fullStream) {
+      // 调试：打印所有事件类型
+      if (!['text-delta'].includes(part.type)) {
+        console.log('Stream event:', part.type, JSON.stringify(part, null, 2));
+      }
+      
       switch (part.type) {
         case 'text-delta':
           if (part.text) {
@@ -272,17 +295,19 @@ app.post('/api/chat/:projectId', requireAuth, async (req, res) => {
         case 'tool-call':
           console.log('Tool call full:', JSON.stringify(part, null, 2));
           res.write(`data: ${JSON.stringify({ 
-            type: 'tool-call', 
+            type: 'tool-call',
+            toolCallId: part.toolCallId,
             tool: part.toolName, 
-            args: part.input || part.args  // 兼容不同版本
+            args: part.input || part.args
           })}\n\n`);
           break;
         case 'tool-result':
           console.log('Tool result full:', JSON.stringify(part, null, 2));
           res.write(`data: ${JSON.stringify({ 
-            type: 'tool-result', 
+            type: 'tool-result',
+            toolCallId: part.toolCallId,
             tool: part.toolName, 
-            result: part.output || part.result  // 兼容不同版本
+            result: part.output || part.result
           })}\n\n`);
           break;
         case 'finish':
