@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - ZHIPU_API_KEY=${ZHIPU_API_KEY}
+      - HOST_DOMAIN=${HOST_DOMAIN:-localhost}
+      - PORT=3000
+    volumes:
+      - ./apps:/app/apps
+      - ./db:/app/db
+    restart: unless-stopped
