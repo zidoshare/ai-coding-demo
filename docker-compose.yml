@@ -1,8 +1,10 @@
+version: '3.8'
+
 services:
   app:
     build: .
     ports:
-      - "${PORT:-3000}:3000"
+      - "3000:3000"
     environment:
       - ZHIPU_API_KEY=${ZHIPU_API_KEY}
       - HOST_DOMAIN=${HOST_DOMAIN:-localhost}
