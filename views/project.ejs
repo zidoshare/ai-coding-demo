@@ -81,7 +81,7 @@
             <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
             <span class="w-3 h-3 rounded-full bg-green-500/80"></span>
           </div>
-          <span class="ml-3 text-slate-500 text-sm font-mono"><%= project.id %>.localhost:3000</span>
+          <span class="ml-3 text-slate-500 text-sm font-mono"><%= project.id %>.<%= hostDomain %><%= port != 80 ? ':' + port : '' %></span>
         </div>
         <button 
           id="refreshBtn"
@@ -98,7 +98,7 @@
       <div class="flex-1 bg-white">
         <iframe 
           id="previewFrame"
-          src="http://<%= project.id %>.localhost:3000"
+          src="http://<%= project.id %>.<%= hostDomain %><%= port != 80 ? ':' + port : '' %>"
           class="w-full h-full border-0"
         ></iframe>
       </div>

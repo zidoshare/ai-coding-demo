@@ -20,6 +20,7 @@ const zhipu = createOpenAI({
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST_DOMAIN = process.env.HOST_DOMAIN || 'localhost'; // 可配置的域名
 const APPS_DIR = path.join(__dirname, 'apps');
 
 // 确保 apps 目录存在
@@ -27,11 +28,14 @@ if (!fs.existsSync(APPS_DIR)) {
   fs.mkdirSync(APPS_DIR, { recursive: true });
 }
 
+// 构建泛域名匹配正则
+const subdomainRegex = new RegExp(`^([a-z0-9]+)\\.${HOST_DOMAIN.replace(/\./g, '\\.')}$`, 'i');
+
 // 泛域名静态文件服务中间件
 app.use((req, res, next) => {
   const host = req.hostname;
-  // 匹配 {projectId}.localhost 格式（支持字母数字）
-  const match = host.match(/^([a-z0-9]+)\.localhost$/i);
+  // 匹配 {projectId}.{HOST_DOMAIN} 格式（支持字母数字）
+  const match = host.match(subdomainRegex);
 
   if (match) {
     const projectId = match[1];
@@ -215,7 +219,13 @@ app.get('/projects/:id', requireAuth, (req, res) => {
   }
   
   const user = db.prepare('SELECT email FROM users WHERE id = ?').get(req.session.userId);
-  res.render('project', { title: 'Vibe Coding Platform', user, project });
+  res.render('project', { 
+    title: 'Vibe Coding Platform', 
+    user, 
+    project,
+    hostDomain: HOST_DOMAIN,
+    port: PORT
+  });
 });
 
 // AI 聊天 API (SSE 流式响应)
